@@ -2858,6 +2858,7 @@ ifdef USE_ADIOS2
     ifndef USE_MPI
       $(error ADIOS2 requires building with MPI)
     endif
+    DEFINES += -DADIOS2
     ADIOS2_INC   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-flags)
     ADIOS2_LIB   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-libs)
     CORE_LIBS += $(ADIOS2_LIB) 
