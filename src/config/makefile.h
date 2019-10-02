@@ -2850,6 +2850,20 @@ ifdef USE_FEFF
 endif
 
 
+# ADIOS2 library inclusion
+ifdef USE_ADIOS2
+    ifndef ADIOS2_DIR
+      $(error Please define ADIOS2_DIR to the installation directory of ADIOS2)
+    endif
+    ifndef USE_MPI
+      $(error ADIOS2 requires building with MPI)
+    endif
+    ADIOS2_INC   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-flags)
+    ADIOS2_LIB   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-libs)
+    CORE_LIBS += $(ADIOS2_LIB) 
+endif
+
+
 
 # slurm libraries for remaining wall time under slurm resource manager
 
