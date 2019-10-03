@@ -15,11 +15,16 @@ LIB_INCLUDES =
 
 #adiosio.o: adiosio.F90
 
+include ../config/makefile.h
+
 ifeq ($(USE_ADIOS2),y)
   LIB_INCLUDES += $(ADIOS2_INCLUDES)
 endif
 
-include ../config/makefile.h
+ifneq ($(MPI_INCLUDE),)
+   LIB_INCLUDES += $(patsubst -I-I%,-I%,-I$(MPI_INCLUDE))
+endif
+
 include ../config/makelib.h
 
 

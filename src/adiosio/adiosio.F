@@ -14,10 +14,12 @@
       subroutine adiosio_init()
         use adios2
         implicit none
-#include "global.fh"
+!#include "global.fh"
+#include "mpif.h"
         integer*4 :: ierr, wcomm
 
-        wcomm = ga_pgroup_get_world()
+        !wcomm = ga_pgroup_get_world()
+        wcomm = MPI_COMM_WORLD
         call adios2_init_config(adios2obj, "adios2.xml", wcomm, 
      &                          .true._4, ierr)
 
@@ -27,10 +29,13 @@
       subroutine adiosio_finalize()
         use adios2
         implicit none
-#include "global.fh"
-        integer*4 :: ierr
+!#include "global.fh"
+#include "mpif.h"
+        integer*4 :: ierr, rank
+        call MPI_Comm_Rank(MPI_COMM_WORLD, rank, ierr)
         if (adios2_engine_trajectory%valid) then
-            if (ga_nodeid() == 0) print *, 'ADIOS2: Close output "trj"'
+            !if (ga_nodeid() == 0) print *, 'ADIOS2: Close output "trj"'
+            if (rank == 0) print *, 'ADIOS2: Close output "trj"'
             call adios2_close(adios2_engine_trajectory, ierr)
         endif
         if (adios2obj%valid) then
