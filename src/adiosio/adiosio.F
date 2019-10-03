@@ -1,15 +1,13 @@
       module adiosio
 
-#ifdef ADIOS2
       use adios2
       ! The one and only ADIOS2 object
       type(adios2_adios) :: adios2obj
+      ! IO objects for each output/input stream
+      type(adios2_io) :: adios2_io_trj
       ! Engine objects that need to be closed at the end of run
-      type(adios2_engine) :: adios2_engine_trajectory
-#endif
-      integer adiosio_dummy_variable
+      type(adios2_engine) :: adios2_engine_trj
 
-#ifdef ADIOS2
       contains
       subroutine adiosio_init()
         use adios2
@@ -33,15 +31,14 @@
 #include "mpif.h"
         integer*4 :: ierr, rank
         call MPI_Comm_Rank(MPI_COMM_WORLD, rank, ierr)
-        if (adios2_engine_trajectory%valid) then
+        if (adios2_engine_trj%valid) then
             !if (ga_nodeid() == 0) print *, 'ADIOS2: Close output "trj"'
             if (rank == 0) print *, 'ADIOS2: Close output "trj"'
-            call adios2_close(adios2_engine_trajectory, ierr)
+            call adios2_close(adios2_engine_trj, ierr)
         endif
         if (adios2obj%valid) then
             call adios2_finalize(adios2obj,ierr)
         endif
       end subroutine adiosio_finalize
-#endif
 
       end module adiosio
