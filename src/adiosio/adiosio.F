@@ -33,7 +33,9 @@
             if (ga_nodeid() == 0) print *, 'ADIOS2: Close output "trj"'
             call adios2_close(adios2_engine_trajectory, ierr)
         endif
-        call adios2_finalize(adios2obj,ierr)
+        if (adios2obj%valid) then
+            call adios2_finalize(adios2obj,ierr)
+        endif
       end subroutine adiosio_finalize
 #endif
 
