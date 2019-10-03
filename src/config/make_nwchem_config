@@ -15,12 +15,12 @@
 # computational modules for NWChem.  They are built after the core
 # directories.
 
-KNOWN_MODULE_SUBDIRS = adiosio NWints atomscf ddscf develop gradients moints nwdft \
+KNOWN_MODULE_SUBDIRS = NWints atomscf ddscf develop gradients moints nwdft \
 	nwxc rimp2 stepper driver optim scfaux cphf ccsd vib mcscf prepar \
         esp hessian selci dplot mp2_grad qhop \
         property solvation nwpw fft rimp2_grad python argos analyz diana nwmd cafe space \
         drdy vscf uccsdt qmmm rism qmd etrans tce geninterface bq mm cons\
-        perfm dntmc smd nbo dangchang leps ccca lucia dimqm rdmft 
+        perfm dntmc smd nbo dangchang leps ccca lucia dimqm rdmft adiosio
 
 # These are the libraries for the high-level modules.  They should be
 # specified in an order that will link correctly, but that shouldn't

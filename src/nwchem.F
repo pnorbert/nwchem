@@ -1,4 +1,7 @@
       program nwchem
+#ifdef ADIOS2
+      use adiosio
+#endif
       implicit none
 #include "errquit.fh"
 #include "mafdecls.fh"
@@ -241,6 +244,13 @@ c
 c
       call input_file_info(input_filename, rtdb_name,
      &    ostartup, ocontinue)
+
+#ifdef ADIOS2
+c
+c     Close all ADIOS files and tidy up memory used by ADIOS
+c
+      call adiosio_init()
+#endif
 c
 c     Now are ready to summarize the environment
 c
@@ -386,6 +396,12 @@ c
       call ecce_print1('all tasks cpu time',mt_dbl,total_cpu,1)
       call ecce_print1('all tasks wall time',mt_dbl,total_wall,1)
       call ga_sync()
+#ifdef ADIOS2
+c
+c     Close all ADIOS files and tidy up memory used by ADIOS
+c
+      call adiosio_finalize()
+#endif
 c
 c     Tidy up the global memory
 c

@@ -2859,9 +2859,21 @@ ifdef USE_ADIOS2
       $(error ADIOS2 requires building with MPI)
     endif
     DEFINES += -DADIOS2
-    ADIOS2_INC   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-flags)
-    ADIOS2_LIB   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-libs)
-    CORE_LIBS += $(ADIOS2_LIB) 
+    ADIOS2_INCLUDES  = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-flags)
+    ADIOS2_LIBS   = $(shell $(ADIOS2_DIR)/bin/adios2-config --fortran-libs)
+    CORE_LIBS += $(ADIOS2_LIBS) 
+    EXTRA_LIBS += $(ADIOS2_LIBS) 
+    $(info )
+    $(info ADIOS2 Settings )
+    $(info   ADIOS2_INCLUDES = $(ADIOS2_INCLUDES) )
+    $(info   ADIOS2_LIBS = $(ADIOS2_LIBS) )
+    $(info   CORE_LIBS = $(CORE_LIBS) )
+    $(info   EXTRA_LIBS = $(EXTRA_LIBS) )
+    $(info )
+else
+    $(info )
+    $(info ADIOS2 I/O library is NOT used )
+    $(info )
 endif
 
 
@@ -3008,13 +3020,16 @@ ifndef NWCHEM_KEEPF
 endif
 else
 ifeq ($(XLFMAC),y)
+	@echo .XLFMAC.  $(FC)  -c $(FFLAGS) $(INCLUDES) -WF,"$(DEFINES)" $(shell echo $(LIB_DEFINES) | sed -e "s/-D/-WF,-D/g" | sed -e 's/\"/\\"/g')  $<
 	$(FC)  -c $(FFLAGS) $(INCLUDES) -WF,"$(DEFINES)" $(shell echo $(LIB_DEFINES) | sed -e "s/-D/-WF,-D/g" | sed -e 's/\"/\\"/g')  $<
 else
+	echo .F to .o: $(NWFC)  -c $(FFLAGS) $(CPPFLAGS)  $<
 	$(NWFC)  -c $(FFLAGS) $(CPPFLAGS)  $<
 endif
 endif
 
 (%.o): %.f
+	@echo .f to .o: $(NWFC) -c $(FFLAGS) $<
 	$(NWFC) -c $(FFLAGS) $<
 
 (%.o): %.c
