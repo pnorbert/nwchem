@@ -21,6 +21,10 @@ ifeq ($(TARGET),LINUX64)
 DEFINES += -DNEED_LOC
 endif
 
+ifeq ($(USE_ADIOS2),y)
+        LIB_INCLUDES += $(ADIOS2_INCLUDES)
+endif
+
 include ../config/makelib.h
 
 showobj:

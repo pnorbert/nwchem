@@ -2,10 +2,15 @@
 c
 c $Id$
 c
+#ifdef ADIOS2
+      use adios2, only: adios2_close
+      use adiosio, only: adios2_engine_trj
+#endif
       implicit none
 c
 #include "md_common.fh"
 #include "mafdecls.fh"
+      integer*4 adios_err
 c
 c     deallocate memory for coordinates, velocities, etc.
 c     ---------------------------------------------------
@@ -144,6 +149,13 @@ c
 c
       if(npg.gt.1) call md_partition_end()
 c
+#ifdef ADIOS2
+      if(ntype.ne.3) then
+      if(nfcoor.gt.0.or.nfscoo.gt.0.or.nfvelo.gt.0.or.nfsvel.gt.0) then
+          call adios2_close(adios2_engine_trj, adios_err)
+      endif
+      endif
+#endif
       return
       end
       subroutine md_timing

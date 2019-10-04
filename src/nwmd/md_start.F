@@ -72,6 +72,9 @@ c
      + form='formatted',status='unknown')
       endif
       endif
+#ifdef ADIOS2
+      call md_fopen_adios2()
+#endif
 c
       if(lqmd) call qmd_start()
 c
@@ -1835,6 +1838,32 @@ c
 c
       return
       end
+#ifdef ADIOS2
+      subroutine md_fopen_adios2()
+c
+      use adios2, only: adios2_declare_io, adios2_open,
+     +                  adios2_mode_write
+      use adiosio, only: adios2_engine_trj, adios2_io_trj, adios2obj
+      implicit none
+c
+#include "md_common.fh"
+c
+      integer*4 ierr
+      character(70) :: fname
+c
+c
+      if(ntype.ne.3) then
+      if(nfcoor.gt.0.or.nfscoo.gt.0.or.nfvelo.gt.0.or.nfsvel.gt.0) then
+          call adios2_declare_io(adios2_io_trj, adios2obj, "trj", ierr)
+          call adios2_open(adios2_engine_trj, adios2_io_trj, 
+     +    filnam(1:index(filnam,' ')-1)//'_trj.bp',
+     +    adios2_mode_write, ierr)
+      endif
+      endif
+c
+      return
+      end
+#endif /* ADIOS2 */
       subroutine md_hdrtim()
 c
       implicit none

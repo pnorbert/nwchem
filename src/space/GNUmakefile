@@ -12,4 +12,9 @@ USES_BLAS=
 
 include ../config/makefile.h
 
+ifeq ($(USE_ADIOS2),y)
+    LIB_INCLUDES += $(ADIOS2_INCLUDES)
+endif
+
+
 include ../config/makelib.h

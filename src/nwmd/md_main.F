@@ -1832,10 +1832,11 @@ c
      + dbl_mb(i_xsm),dbl_mb(i_xsmp))
 c
       corrio=costio
-      if(me.eq.0.and..not.lequi.and.(lxw.or.lvw.or.lxs.or.lvs)) then
+      if(.not.lequi.and.(lxw.or.lvw.or.lxs.or.lvs)) then
 c
       call timer_start(6)
 c
+      if(me.eq.0) then
       if(lqmd) then
       call qmd_wrttrj(lfntrj,mwm,nwmloc,mwa,nwa,msa,nsaloc,
      + .true.,.false.,.true.,.false.,box,stime-tstep,pres,temp,tempw,
@@ -1850,12 +1851,26 @@ c
      + dbl_mb(i_fs))
       endif
       endif
+c
+#ifdef ADIOS2
+      else  ! me.eq.0
+c     Every process participates in ADIOS I/O
+      if(.not.lqmd.and..not.lfw.and..not.lfs) then
+      call sp_wrttrj(lfntrj,lxw,lvw,lfw,lxs,lvs,lfs,
+     + stime,pres,temp,tempw,temps,
+     + int_mb(i_iw),dbl_mb(i_xw),dbl_mb(i_vw),dbl_mb(i_fw),
+     + dbl_mb(i_xwcr),int_mb(i_is),dbl_mb(i_xs),dbl_mb(i_vs),
+     + dbl_mb(i_fs))
+      endif
+#endif
+      endif ! me.eq.0
+
       call timer_stop(6)
 c
       costio=max(costio,timer_wall(6))
       corrio=costio-timer_wall(6)
-c
-      endif
+
+      endif ! (.not.lequi.and.(lxw.or.lvw.or.lxs.or.lvs)
 c
 c     atomic forces and potential energies
 c
