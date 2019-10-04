@@ -13,8 +13,6 @@ USES_BLAS=
 LIB_DEFINES = 
 LIB_INCLUDES = 
 
-#adiosio.o: adiosio.F90
-
 include ../config/makefile.h
 
 ifeq ($(USE_ADIOS2),y)
@@ -27,4 +25,5 @@ endif
 
 include ../config/makelib.h
 
+adiosio.mod: adiosio.o
 
