@@ -3180,6 +3180,10 @@ c
 c     ADIOS variables defined once, used at every call
       logical, save :: first_call = .true.
       type(adios2_variable), save :: vstime, vvlat, vwx, viw
+c     Contiguous column from iwl
+      integer :: iwg(mwm)
+c     Contiguous column from isl
+      integer :: isg(msa)
 c
       dumdst=0.02d0
 c
@@ -3236,15 +3240,20 @@ c       Indices
           call ga_get(ga_iw,ili,ili+nwmn-1,jli,jli+npackw-1,iwlp,mwm)
           call sp_unpackw(nwmn,iwl,iwlp)
         endif
+c       Get copy of contiguous data
+c       which must live until adios_end_step(), so 
+c       passing iwl(1:mwm, lwgmn) is not good here
+c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
+        iwg = iwl(1:mwm,lwgmn)
         call adios2_set_selection(viw, 1_4, (/ me*mwm /),
      +                                      (/ nwmn /), err)
-        call adios2_put(adios2_engine_trj, viw, iwl, err)
+        call adios2_put(adios2_engine_trj, viw, iwg, err)
 
 c       Solvent coordinates
         call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
         call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
-        write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
-     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
+c        write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
+c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
         call adios2_set_selection(vwx, 3_4,  (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
         call adios2_put(adios2_engine_trj, vwx, xw, err)
