@@ -3179,7 +3179,7 @@ c
 c
 c     ADIOS variables defined once, used at every call
       logical, save :: first_call = .true.
-      type(adios2_variable), save :: vstime, vvlat, vbxw
+      type(adios2_variable), save :: vstime, vvlat, vwx, viw
 c
       dumdst=0.02d0
 c
@@ -3188,6 +3188,10 @@ c
 c
       write(6,'(a,i2,a,l)') "@@ Rank ",me," Enter sp_wttrj, first = ",
      +                      first_call
+
+      call ga_distribution(ga_ip,me,ilp,ihp,jlp,jhp)
+      call ga_get(ga_ip,ilp,ihp,jlp,jhp,ipl,mbox)
+      nwmn=ipl(1,2)
       if(first_call) then
         if (me.eq.0) then 
           call adios2_define_variable(vstime, adios2_io_trj, "stime", 
@@ -3198,6 +3202,21 @@ c
      +         (/ 3_8, 3_8 /), (/ 0_8, 0_8 /), (/ 3_8, 3_8 /), 
      +         .true._4, err)
         endif
+
+        call adios2_define_variable(vwx, adios2_io_trj, 
+     +         "solvent/coords", 
+     +         adios2_type_dp, 3_4, 
+     +         (/ np*mwm, 3_8, nwa /), (/ me*mwm, 0_8, 0_8 /), 
+     +         (/ nwmn, 3_8, nwa /), 
+     +         .false._4, err)
+ 
+        call adios2_define_variable(viw, adios2_io_trj, 
+     +         "solvent/indices", 
+     +         adios2_type_integer8, 1_4, 
+     +         (/ np*mwm /), (/ me*mwm /), 
+     +         (/ nwmn /), 
+     +         .false._4, err)
+ 
         first_call = .false.
       endif
 c
@@ -3207,6 +3226,28 @@ c
       if (me.eq.0) then 
           call adios2_put(adios2_engine_trj, vstime, stime, err)
           call adios2_put(adios2_engine_trj, vvlat, vlat, err)
+      endif
+      if(nwmn.gt.0) then
+c       Indices
+        call ga_distribution(ga_iw,me,ili,ihi,jli,jhi)
+        if(npackw.eq.0) then
+          call ga_get(ga_iw,ili,ili+nwmn-1,jli,jli+lwdyn-1,iwl,mwm)
+        else
+          call ga_get(ga_iw,ili,ili+nwmn-1,jli,jli+npackw-1,iwlp,mwm)
+          call sp_unpackw(nwmn,iwl,iwlp)
+        endif
+        call adios2_set_selection(viw, 1_4, (/ me*mwm /),
+     +                                      (/ nwmn /), err)
+        call adios2_put(adios2_engine_trj, viw, iwl, err)
+
+c       Solvent coordinates
+        call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
+        call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
+        write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
+     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
+        call adios2_set_selection(vwx, 3_4,  (/ me*mwm, 0_8, 0_8 /),
+     +                                       (/ nwmn, 3_8, nwa /), err)
+        call adios2_put(adios2_engine_trj, vwx, xw, err)
       endif
       call adios2_end_step(adios2_engine_trj, err)
 
