@@ -3179,36 +3179,122 @@ c
 c
 c     ADIOS variables defined once, used at every call
       logical, save :: first_call = .true.
-      type(adios2_variable), save :: vstime, vvlat, vwx, viw
+      type(adios2_variable), save :: vstime, vvlat, vnproc, vflags
+      type(adios2_variable), save :: vtemp, vpres, vrdate, vrtime
+      type(adios2_variable), save :: vnwm, vnwa, vnsa
+      type(adios2_variable), save :: vnwmn, vmwm, vnsan, vmsa
+      type(adios2_variable), save :: vwx, vwv, vwf, viw
+      type(adios2_variable), save :: vsx, vsv, vsf, vis
+      type(adios2_attribute), save :: aattr
 c     Contiguous column from iwl
       integer :: iwg(mwm)
 c     Contiguous column from isl
       integer :: isg(msa)
+c     Flags stored in 6 byte array = (/ lxw, lvw, lfw, lxs, lvs, lfs /)
+      integer*1 :: flags(6)
+
 c
       dumdst=0.02d0
 c
       lpw=.false.
       lps=.false.
+      flags = (/ 0,0,0,0,0,0 /)
 c
-      write(6,'(a,i2,a,l)') "@@ Rank ",me," Enter sp_wttrj, first = ",
-     +                      first_call
+c      if (me.eq.0) then 
+c        write(6,'(a,i2,a,f12.9)') "@@ Rank ",me,
+c     +      " Enter sp_wttrj, stime = ", stime
+c      endif
 
       call ga_distribution(ga_ip,me,ilp,ihp,jlp,jhp)
       call ga_get(ga_ip,ilp,ihp,jlp,jhp,ipl,mbox)
       nwmn=ipl(1,2)
+      nsan=ipl(2,2)
+
       if(first_call) then
         if (me.eq.0) then 
           call adios2_define_variable(vstime, adios2_io_trj, "stime", 
      +                                adios2_type_dp, err)
 
+          call adios2_define_variable(vnproc, adios2_io_trj, "nproc", 
+     +                                adios2_type_integer8, err)
+
+          call adios2_define_variable(vtemp, adios2_io_trj, "temp", 
+     +                                adios2_type_dp, err)
+
+          call adios2_define_variable(vpres, adios2_io_trj, "pres", 
+     +                                adios2_type_dp, err)
+
+          call adios2_define_variable(vrdate, adios2_io_trj, "rdate", 
+     +                                adios2_type_string, err)
+
+          call adios2_define_variable(vrtime, adios2_io_trj, "rtime", 
+     +                                adios2_type_string, err)
+
           call adios2_define_variable(vvlat, adios2_io_trj, "vlat", 
      +         adios2_type_dp, 2_4, 
      +         (/ 3_8, 3_8 /), (/ 0_8, 0_8 /), (/ 3_8, 3_8 /), 
      +         .true._4, err)
+
+          call adios2_define_variable(vflags, adios2_io_trj, "flags", 
+     +         adios2_type_integer1, 1_4, 
+     +         (/ 6_8 /), (/ 0_8 /), (/ 6_8 /), 
+     +         .true._4, err)
+
+          call adios2_define_attribute(aattr, adios2_io_trj, 
+     +         "flags/desc", "lxw,lvw,lfw,lxs,lvs,lfs", err)
+
+          call adios2_define_variable(vmwm, adios2_io_trj, 
+     +                                "solvent/mwm", 
+     +                                adios2_type_integer8, err)
+
+          call adios2_define_variable(vnwm, adios2_io_trj, 
+     +                                "solvent/nwm", 
+     +                                adios2_type_integer8, err)
+
+          call adios2_define_variable(vnwa, adios2_io_trj, 
+     +                                "solvent/nwa", 
+     +                                adios2_type_integer8, err)
+
+          call adios2_define_variable(vmsa, adios2_io_trj,
+     +                                "solute/msa", 
+     +                                adios2_type_integer8, err)
+
+          call adios2_define_variable(vnsa, adios2_io_trj,
+     +                                "solute/nsa", 
+     +                                adios2_type_integer8, err)
+
         endif
 
+
+        call adios2_define_variable(vnwmn, adios2_io_trj, 
+     +         "solvent/nwmn", 
+     +         adios2_type_integer8, 1_4, 
+     +         (/ np /), (/ me /), (/ 1 /),
+     +         .false._4, err)
+
+        call adios2_define_variable(vnsan, adios2_io_trj, 
+     +         "solute/nsan", 
+     +         adios2_type_integer8, 1_4, 
+     +         (/ np /), (/ me /), (/ 1 /),
+     +         .false._4, err)
+
+c    Define solvent output variables
         call adios2_define_variable(vwx, adios2_io_trj, 
      +         "solvent/coords", 
+     +         adios2_type_dp, 3_4, 
+     +         (/ np*mwm, 3_8, nwa /), (/ me*mwm, 0_8, 0_8 /), 
+     +         (/ nwmn, 3_8, nwa /), 
+     +         .false._4, err)
+ 
+        call adios2_define_variable(vwv, adios2_io_trj, 
+     +         "solvent/velocity", 
+     +         adios2_type_dp, 3_4, 
+     +         (/ np*mwm, 3_8, nwa /), (/ me*mwm, 0_8, 0_8 /), 
+     +         (/ nwmn, 3_8, nwa /), 
+     +         .false._4, err)
+ 
+        call adios2_define_variable(vwf, adios2_io_trj, 
+     +         "solvent/forces", 
      +         adios2_type_dp, 3_4, 
      +         (/ np*mwm, 3_8, nwa /), (/ me*mwm, 0_8, 0_8 /), 
      +         (/ nwmn, 3_8, nwa /), 
@@ -3221,7 +3307,35 @@ c
      +         (/ nwmn /), 
      +         .false._4, err)
  
-        first_call = .false.
+c    Define solute output variables
+        call adios2_define_variable(vsx, adios2_io_trj, 
+     +         "solute/coords", 
+     +         adios2_type_dp, 2_4, 
+     +         (/ np*msa, 3_8 /), (/ me*msa, 0_8 /), 
+     +         (/ nsan, 3_8 /), 
+     +         .false._4, err)
+ 
+        call adios2_define_variable(vsv, adios2_io_trj, 
+     +         "solute/velocity", 
+     +         adios2_type_dp, 2_4, 
+     +         (/ np*msa, 3_8 /), (/ me*msa, 0_8 /), 
+     +         (/ nsan, 3_8 /), 
+     +         .false._4, err)
+ 
+        call adios2_define_variable(vsf, adios2_io_trj, 
+     +         "solute/forces", 
+     +         adios2_type_dp, 2_4, 
+     +         (/ np*msa, 3_8 /), (/ me*msa, 0_8 /), 
+     +         (/ nsan, 3_8 /), 
+     +         .false._4, err)
+ 
+        call adios2_define_variable(vis, adios2_io_trj, 
+     +         "solute/indices", 
+     +         adios2_type_integer8, 1_4, 
+     +         (/ np*msa /), (/ me*msa /), 
+     +         (/ nsan /), 
+     +         .false._4, err)
+ 
       endif
 c
       call swatch(rdate,rtime)
@@ -3229,8 +3343,24 @@ c
       call adios2_begin_step(adios2_engine_trj, err)
       if (me.eq.0) then 
           call adios2_put(adios2_engine_trj, vstime, stime, err)
+          call adios2_put(adios2_engine_trj, vtemp, temp, err)
+          call adios2_put(adios2_engine_trj, vpres, pres, err)
+          call adios2_put(adios2_engine_trj, vrtime, rtime, err)
           call adios2_put(adios2_engine_trj, vvlat, vlat, err)
+          if (first_call) then
+             call adios2_put(adios2_engine_trj, vnproc, np, err)
+             call adios2_put(adios2_engine_trj, vrdate, rdate, err)
+             call adios2_put(adios2_engine_trj, vmwm, mwm, err)
+             call adios2_put(adios2_engine_trj, vnwm, nwm, err)
+             call adios2_put(adios2_engine_trj, vnwa, nwa, err)
+             call adios2_put(adios2_engine_trj, vmsa, msa, err)
+             call adios2_put(adios2_engine_trj, vnsa, nsa, err)
+          endif
       endif
+      call adios2_put(adios2_engine_trj, vnwmn, nwmn, err)
+      call adios2_put(adios2_engine_trj, vnsan, nsan, err)
+
+c     Solvent output
       if(nwmn.gt.0) then
 c       Indices
         call ga_distribution(ga_iw,me,ili,ihi,jli,jhi)
@@ -3251,13 +3381,85 @@ c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
 
 c       Solvent coordinates
         call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
-        call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
-c        write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
+        if (lxw) then
+          flags(1) = 1
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
+c          write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
 c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
-        call adios2_set_selection(vwx, 3_4,  (/ me*mwm, 0_8, 0_8 /),
+          call adios2_set_selection(vwx, 3_4,  (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
-        call adios2_put(adios2_engine_trj, vwx, xw, err)
+          call adios2_put(adios2_engine_trj, vwx, xw, err)
+        endif
+c       Solvent velocity
+        if (lvw) then
+          flags(2) = 1
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+3*mwa,jlw+6*mwa-1,vw,mwm)
+          call adios2_set_selection(vwv, 3_4,  (/ me*mwm, 0_8, 0_8 /),
+     +                                       (/ nwmn, 3_8, nwa /), err)
+          call adios2_put(adios2_engine_trj, vwv, vw, err)
+        endif
+c       Solvent forces
+        if (lfw) then
+          flags(3) = 1
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa,jlw+9*mwa-1,fw,mwm)
+          call adios2_set_selection(vwf, 3_4,  (/ me*mwm, 0_8, 0_8 /),
+     +                                       (/ nwmn, 3_8, nwa /), err)
+          call adios2_put(adios2_engine_trj, vwf, fw, err)
+        endif
       endif
+
+c     Solute output
+      if(nsan.gt.0) then
+c       Indices
+        call ga_distribution(ga_is,me,ili,ihi,jli,jhi)
+        if(npack.eq.0) then
+          call ga_get(ga_is,ili,ili+nsan-1,jli,jli+lsdyn-1,isl,msa)
+        else
+          call ga_get(ga_is,ili,ili+nsan-1,jli,jli+npack-1,islp,msa)
+          call sp_unpack(nsan,isl,islp)
+        endif
+
+c       Get copy of contiguous data
+c       which must live until adios_end_step(), so 
+c       passing iwl(1:mwm, lwgmn) is not good here
+c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
+        isg = isl(1:msa,lsgan)
+        call adios2_set_selection(vis, 1_4, (/ me*msa /),
+     +                                      (/ nsan /), err)
+        call adios2_put(adios2_engine_trj, vis, isg, err)
+
+c       Solute coordinates
+        call ga_distribution(ga_s,me,ils,ihs,jls,jhs)
+
+        if (lxs) then
+          flags(4) = 1
+          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
+          call adios2_set_selection(vsx, 2_4,  (/ me*msa, 0_8 /),
+     +                                       (/ nsan, 3_8 /), err)
+          call adios2_put(adios2_engine_trj, vsx, xs, err)
+        endif
+c       Solute velocity
+        if (lvs) then
+          flags(5) = 1
+          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,vs,msa)
+          call adios2_set_selection(vsv, 2_4,  (/ me*msa, 0_8 /),
+     +                                       (/ nsan, 3_8 /), err)
+          call adios2_put(adios2_engine_trj, vsv, vs, err)
+        endif
+c       Solute forces
+        if (lfs) then
+          flags(6) = 1
+          call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,fs,msa)
+          call adios2_set_selection(vsf, 2_4,  (/ me*msa, 0_8 /),
+     +                                       (/ nsan, 3_8 /), err)
+          call adios2_put(adios2_engine_trj, vsf, fs, err)
+        endif
+      endif
+
+      if (me.eq.0) then 
+          call adios2_put(adios2_engine_trj, vflags, flags, err)
+      endif
+
       call adios2_end_step(adios2_engine_trj, err)
 
 #if 0
@@ -3546,6 +3748,7 @@ c
       call util_flush(lfntrj)
 c
 #endif /* 0 */
+      first_call = .false.
       return
       end
 
