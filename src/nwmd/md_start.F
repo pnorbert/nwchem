@@ -1841,8 +1841,9 @@ c
 #ifdef ADIOS2
       subroutine md_fopen_adios2()
 c
-      use adios2, only: adios2_declare_io, adios2_open,
-     +                  adios2_mode_write
+      use adios2, only: adios2_declare_io, adios2_open, 
+     +                  adios2_mode_write, 
+     +                  adios2_define_attribute, adios2_attribute
       use adiosio, only: adios2_engine_trj, adios2_io_trj, adios2obj
       implicit none
 c
@@ -1850,13 +1851,19 @@ c
 c
       integer*4 ierr
       character(70) :: fname
+      type(adios2_attribute) :: aattr
 c
 c
       if(ntype.ne.3) then
       if(nfcoor.gt.0.or.nfscoo.gt.0.or.nfvelo.gt.0.or.nfsvel.gt.0) then
           call adios2_declare_io(adios2_io_trj, adios2obj, "trj", ierr)
+          call adios2_define_attribute(aattr, adios2_io_trj, 
+     +     "description", 
+     +     "Unsorted Trajectory data. Use nwchem-sort-trajectory tool",
+     +     ierr)
+
           call adios2_open(adios2_engine_trj, adios2_io_trj, 
-     +    filnam(1:index(filnam,' ')-1)//'_trj.bp',
+     +    filnam(1:index(filnam,' ')-1)//'_trj_dump.bp',
      +    adios2_mode_write, ierr)
       endif
       endif
