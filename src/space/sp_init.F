@@ -3190,15 +3190,14 @@ c     Contiguous column from iwl
       integer :: iwg(mwm)
 c     Contiguous column from isl
       integer :: isg(msa)
-c     Flags stored in 6 byte array = (/ lxw, lvw, lfw, lxs, lvs, lfs /)
-      integer*1 :: flags(6)
+c     Flags stored 8 bit integer = (0, 0, lxw, lvw, lfw, lxs, lvs, lfs)
+      integer*1 :: flags
 
 c
       dumdst=0.02d0
 c
       lpw=.false.
       lps=.false.
-      flags = (/ 0,0,0,0,0,0 /)
 c
 c      if (me.eq.0) then 
 c        write(6,'(a,i2,a,f12.9)') "@@ Rank ",me,
@@ -3236,12 +3235,10 @@ c      endif
      +         .true._4, err)
 
           call adios2_define_variable(vflags, adios2_io_trj, "flags", 
-     +         adios2_type_integer1, 1_4, 
-     +         (/ 6_8 /), (/ 0_8 /), (/ 6_8 /), 
-     +         .true._4, err)
+     +                                adios2_type_integer1, err)
 
           call adios2_define_attribute(aattr, adios2_io_trj, 
-     +         "flags/desc", "lxw,lvw,lfw,lxs,lvs,lfs", err)
+     +         "flags/desc", "bitmap: 0,0,lxw,lvw,lfw,lxs,lvs,lfs", err)
 
           call adios2_define_variable(vmwm, adios2_io_trj, 
      +                                "solvent/mwm", 
@@ -3382,29 +3379,35 @@ c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
 c       Solvent coordinates
         call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
         if (lxw) then
-          flags(1) = 1
+          flags = 1 
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
 c          write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
 c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
           call adios2_set_selection(vwx, 3_4,  (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
           call adios2_put(adios2_engine_trj, vwx, xw, err)
+        else 
+          flags = 0 
         endif
 c       Solvent velocity
         if (lvw) then
-          flags(2) = 1
+          flags = flags*2+1
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+3*mwa,jlw+6*mwa-1,vw,mwm)
           call adios2_set_selection(vwv, 3_4,  (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
           call adios2_put(adios2_engine_trj, vwv, vw, err)
+        else
+          flags = flags*2
         endif
 c       Solvent forces
         if (lfw) then
-          flags(3) = 1
+          flags = flags*2+1
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa,jlw+9*mwa-1,fw,mwm)
           call adios2_set_selection(vwf, 3_4,  (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
           call adios2_put(adios2_engine_trj, vwf, fw, err)
+        else
+          flags = flags*2
         endif
       endif
 
@@ -3432,27 +3435,33 @@ c       Solute coordinates
         call ga_distribution(ga_s,me,ils,ihs,jls,jhs)
 
         if (lxs) then
-          flags(4) = 1
+          flags = flags*2+1
           call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
           call adios2_set_selection(vsx, 2_4,  (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
           call adios2_put(adios2_engine_trj, vsx, xs, err)
+        else
+          flags = flags*2
         endif
 c       Solute velocity
         if (lvs) then
-          flags(5) = 1
+          flags = flags*2+1
           call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,vs,msa)
           call adios2_set_selection(vsv, 2_4,  (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
           call adios2_put(adios2_engine_trj, vsv, vs, err)
+        else
+          flags = flags*2
         endif
 c       Solute forces
         if (lfs) then
-          flags(6) = 1
+          flags = flags*2+1
           call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,fs,msa)
           call adios2_set_selection(vsf, 2_4,  (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
           call adios2_put(adios2_engine_trj, vsf, fs, err)
+        else
+          flags = flags*2
         endif
       endif
 
