@@ -3111,14 +3111,14 @@ c
      + int_mb(i_ipl),lenscr,int_mb(i_bi),dbl_mb(i_bx),dbl_mb(i_bv),
      + dbl_mb(i_bf),dbl_mb(i_br),int_mb(i_bi),dbl_mb(i_bx),dbl_mb(i_bv),
      + dbl_mb(i_bf))
-#else
+#endif
       call sp_wttrj(lfntrj,lxw,lvw,lfw,lxs,lvs,lfs,
      + stime,pres,temp,tempw,temps,
      + iwl,int_mb(i_packw),xw,vw,fw,xwcr,isl,int_mb(i_pack),xs,vs,fs,
      + int_mb(i_ipl),lenscr,int_mb(i_bi),dbl_mb(i_bx),dbl_mb(i_bv),
      + dbl_mb(i_bf),dbl_mb(i_br),int_mb(i_bi),dbl_mb(i_bx),dbl_mb(i_bv),
      + dbl_mb(i_bf))
-#endif
+c#endif
 c
       if(.not.ma_pop_stack(l_n))
      + call md_abort('Failed to deallocate n',0)
@@ -3300,7 +3300,7 @@ c    Define solvent output variables
         call adios2_define_variable(viw, adios2_io_trj, 
      +         "solvent/indices", 
      +         adios2_type_integer8, 1_4, 
-     +         (/ np*mwm /), (/ me*mwm /), 
+     +          (/ np*mwm /), (/ me*mwm /), 
      +         (/ nwmn /), 
      +         .false._4, err)
  
@@ -3329,9 +3329,10 @@ c    Define solute output variables
         call adios2_define_variable(vis, adios2_io_trj, 
      +         "solute/indices", 
      +         adios2_type_integer8, 1_4, 
-     +         (/ np*msa /), (/ me*msa /), 
+     +         (/ np*msa, 3_8 /), (/ me*msa, 0_8 /), 
      +         (/ nsan /), 
      +         .false._4, err)
+c     +         (/ np*msa /), (/ me*msa /), 
  
       endif
 c
@@ -3378,8 +3379,23 @@ c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
 
 c       Solvent coordinates
         call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
+
         if (lxw) then
           flags = 1 
+
+#if 0
+        HERE IS THE PROBLEM:
+        xw is an mwa x 3 x nwa array but we only write out the first contiguous
+        nwmn x 3 x nwa elements, but that is not the nwmn particles but
+        probably 3*nwmn X coordinates where most values are completely wrong
+        Need to serialize (X, Y, Z)x nwa of nwmn elements into one block
+#endif
+c        We only collect nwmn molecules even though xw has mwa rows. We trick GA here
+c        to fill out xw as if it had nwmn slots. This will have the 
+c        x...xy...yz...z coordinates in one contiguous memory block as needed by ADIOS
+c       write(6,'(a,i2,a,i4,a,i4,a,i4)') "@@ Rank ",me," get xw. mwa=",
+c     + mwa, " nwa=", nwa, " nwmn=", nwmn
+c SHOULD BE THIS:           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,nwmn)
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
 c          write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
 c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
@@ -3436,17 +3452,33 @@ c       Solute coordinates
 
         if (lxs) then
           flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
+
+#if 0
+        HERE IS THE PROBLEM:
+        xs is an msa x 3 array but we only write out the first contiguous
+        nsnan x 3 elements, but that is not the nsan particles but
+        probably 3*nsan X coordinates where 2*nsan values are completely wrong
+        Need to serialize X, Y, Z of nsan elements into one block
+#endif
+c        We only collect nsan atoms even though xs has msa rows. We trick GA here
+c        to fill out xs as if it had nsan slots. This will have the 
+c        x...xy...yz...z coordinates in one contiguous memory block as needed by ADIOS
+c          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
+          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,nsan)
           call adios2_set_selection(vsx, 2_4,  (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
           call adios2_put(adios2_engine_trj, vsx, xs, err)
+          write (100+me, '("rank=",i2," XS size=",i5)') me, nsan 
+          do 261 i=1,nsan
+           write(100+me,'(f6.3,"  ",f6.3,"  ",f6.3)')(xs(i,j),j=1,3)
+  261     continue 
         else
           flags = flags*2
         endif
 c       Solute velocity
         if (lvs) then
           flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,vs,msa)
+          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,vs,nsan)
           call adios2_set_selection(vsv, 2_4,  (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
           call adios2_put(adios2_engine_trj, vsv, vs, err)
@@ -3456,7 +3488,7 @@ c       Solute velocity
 c       Solute forces
         if (lfs) then
           flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,fs,msa)
+          call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,fs,nsan)
           call adios2_set_selection(vsf, 2_4,  (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
           call adios2_put(adios2_engine_trj, vsf, fs, err)
@@ -3648,36 +3680,36 @@ c
       if(lfs) call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,fs,msa)
       nonh=0
       do 10 i=1,nsan
-      j=isl(i,lsgan)-number
-      if(j.gt.0.and.j.le.nums) then
-      bxs(j,1)=xs(i,1)
-      bxs(j,2)=xs(i,2)
-      bxs(j,3)=xs(i,3)
-      if(isl(i,lshop).eq.0) nonh=i
-      if(iand(isl(i,lshop),1).eq.1) then
-      if(nonh.gt.0) then
-      bxs(j,1)=xs(nonh,1)-xs(i,1)
-      bxs(j,2)=xs(nonh,2)-xs(i,2)
-      bxs(j,3)=xs(nonh,3)-xs(i,3)
-      dist=sqrt(bxs(j,1)*bxs(j,1)+bxs(j,2)*bxs(j,2)+bxs(j,3)*bxs(j,3))
-      dist=dumdst/dist
-      bxs(j,1)=xs(nonh,1)-dist*bxs(j,1)
-      bxs(j,2)=xs(nonh,2)-dist*bxs(j,2)
-      bxs(j,3)=xs(nonh,3)-dist*bxs(j,3)
-      endif
-      endif
-      if(lvs) then
-      bvs(j,1)=vs(i,1)
-      bvs(j,2)=vs(i,2)
-      bvs(j,3)=vs(i,3)
-      endif
-      if(lfs) then
-      bfs(j,1)=fs(i,1)
-      bfs(j,2)=fs(i,2)
-      bfs(j,3)=fs(i,3)
-      endif
-      ibs(j)=isl(i,lsdyn)
-      endif
+        j=isl(i,lsgan)-number
+        if(j.gt.0.and.j.le.nums) then
+          bxs(j,1)=xs(i,1)
+          bxs(j,2)=xs(i,2)
+          bxs(j,3)=xs(i,3)
+          if(isl(i,lshop).eq.0) nonh=i
+          if(iand(isl(i,lshop),1).eq.1) then
+            if(nonh.gt.0) then
+              bxs(j,1)=xs(nonh,1)-xs(i,1)
+              bxs(j,2)=xs(nonh,2)-xs(i,2)
+              bxs(j,3)=xs(nonh,3)-xs(i,3)
+              dist=sqrt(bxs(j,1)*bxs(j,1)+bxs(j,2)*bxs(j,2)+bxs(j,3)*bxs(j,3))
+              dist=dumdst/dist
+              bxs(j,1)=xs(nonh,1)-dist*bxs(j,1)
+              bxs(j,2)=xs(nonh,2)-dist*bxs(j,2)
+              bxs(j,3)=xs(nonh,3)-dist*bxs(j,3)
+            endif
+          endif
+          if(lvs) then
+            bvs(j,1)=vs(i,1)
+            bvs(j,2)=vs(i,2)
+            bvs(j,3)=vs(i,3)
+          endif
+          if(lfs) then
+            bfs(j,1)=fs(i,1)
+            bfs(j,2)=fs(i,2)
+            bfs(j,3)=fs(i,3)
+          endif
+          ibs(j)=isl(i,lsdyn)
+        endif
    10 continue
       endif
     9 continue
@@ -3761,7 +3793,7 @@ c
       return
       end
 
-#else /* ADIOS2 */
+#endif /* ADIOS2 */
 
 
 
@@ -3996,6 +4028,7 @@ c
       if(isl(i,lshop).eq.0) nonh=i
       if(iand(isl(i,lshop),1).eq.1) then
       if(nonh.gt.0) then
+      call md_abort('Solute nonh NOT SUPPORTED by ADIOS, atom idx ',i)
       bxs(j,1)=xs(nonh,1)-xs(i,1)
       bxs(j,2)=xs(nonh,2)-xs(i,2)
       bxs(j,3)=xs(nonh,3)-xs(i,3)
@@ -4099,7 +4132,7 @@ c
       return
       end
 
-#endif /* ADIOS2 */
+c#endif /* ADIOS2 */
 
       logical function sp_skip(lfntri,nskip)
 c
