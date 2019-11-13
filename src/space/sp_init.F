@@ -3421,7 +3421,8 @@ c       Solvent velocity
 c       Solvent forces
         if (lfw) then
           flags = flags*2+1
-          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa,jlw+9*mwa-1,fw,nwmn)
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa+3,jlw+9*mwa+2,fw,
+     +                nwmn)
           call adios2_set_selection(vwf, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
           call adios2_put(adios2_engine_trj, vwf, fw, err)
