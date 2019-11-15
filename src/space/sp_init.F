@@ -3170,6 +3170,11 @@ c
       integer ilp,ihp,jlp,jhp,ili,ihi,jli,jhi,ilw,ihw,jlw,jhw
       integer ils,ihs,jls,jhs
       character*10 rdate,rtime
+
+c     Allocate work buffers once for private use in this subroutine
+c     instead of messing with xw,vw,... that needs to be intact on exit
+      real*8, dimension(:,:,:), allocatable, save :: myxw,myvw,myfw
+      real*8, dimension(:,:), allocatable, save :: myxs,myvs,myfs
 c
       logical lpw,lps
 c
@@ -3363,6 +3368,9 @@ c             call adios2_put(adios2_engine_trj, vmsa, msa, err)
 
 c     Solvent output
       if(nwmn.gt.0) then
+        if (.not.allocated(myxw)) allocate(myxw(mwm,3,nwa))
+        if (.not.allocated(myvw)) allocate(myvw(mwm,3,nwa))
+        if (.not.allocated(myfw)) allocate(myfw(mwm,3,nwa))
 c       Indices
         call ga_distribution(ga_iw,me,ili,ihi,jli,jhi)
         if(npackw.eq.0) then
@@ -3399,33 +3407,40 @@ c        x...xy...yz...z coordinates in one contiguous memory block as needed by
 c       write(6,'(a,i2,a,i4,a,i4,a,i4)') "@@ Rank ",me," get xw. mwa=",
 c     + mwa, " nwa=", nwa, " nwmn=", nwmn
 c SHOULD BE THIS:           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,nwmn)
-          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,nwmn)
+        if (allocated(myxw)) then
+           write(6,'(a,i2,a)') "@@ Rank ",me," YAY "
+        else
+           write(6,'(a,i2,a)') "@@ Rank ",me," NOO "
+        endif
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,myxw,nwmn)
 c          write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
 c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
           call adios2_set_selection(vwx, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
-          call adios2_put(adios2_engine_trj, vwx, xw, err)
+          call adios2_put(adios2_engine_trj, vwx, myxw, err)
+c          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
         else 
           flags = 0 
         endif
 c       Solvent velocity
         if (lvw) then
           flags = flags*2+1
-          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+3*mwa,jlw+6*mwa-1,vw,nwmn)
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+3*mwa,jlw+6*mwa-1,myvw,
+     +                nwmn)
           call adios2_set_selection(vwv, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
-          call adios2_put(adios2_engine_trj, vwv, vw, err)
+          call adios2_put(adios2_engine_trj, vwv, myvw, err)
         else
           flags = flags*2
         endif
 c       Solvent forces
         if (lfw) then
           flags = flags*2+1
-          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa+3,jlw+9*mwa+2,fw,
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa+3,jlw+9*mwa+2,myfw,
      +                nwmn)
           call adios2_set_selection(vwf, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
      +                                       (/ nwmn, 3_8, nwa /), err)
-          call adios2_put(adios2_engine_trj, vwf, fw, err)
+          call adios2_put(adios2_engine_trj, vwf, myfw, err)
         else
           flags = flags*2
         endif
@@ -3433,6 +3448,9 @@ c       Solvent forces
 
 c     Solute output
       if(nsan.gt.0) then
+        if (.not.allocated(myxs)) allocate(myxs(msa,3))
+        if (.not.allocated(myvs)) allocate(myvs(msa,3))
+        if (.not.allocated(myfs)) allocate(myfs(msa,3))
 c       Indices
         call ga_distribution(ga_is,me,ili,ihi,jli,jhi)
         if(npack.eq.0) then
@@ -3468,34 +3486,34 @@ c        We only collect nsan atoms even though xs has msa rows. We trick GA her
 c        to fill out xs as if it had nsan slots. This will have the 
 c        x...xy...yz...z coordinates in one contiguous memory block as needed by ADIOS
 c          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
-          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,nsan)
+          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,myxs,nsan)
           call adios2_set_selection(vsx, 2_4, adios2_null_dims, ! (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
-          call adios2_put(adios2_engine_trj, vsx, xs, err)
-          write (100+me, '("rank=",i2," XS size=",i5)') me, nsan 
-          do 261 i=1,nsan
-           write(100+me,'(f6.3,"  ",f6.3,"  ",f6.3)')(xs(i,j),j=1,3)
-  261     continue 
+          call adios2_put(adios2_engine_trj, vsx, myxs, err)
+c          write (100+me, '("rank=",i2," XS size=",i5)') me, nsan 
+c          do 261 i=1,nsan
+c           write(100+me,'(f6.3,"  ",f6.3,"  ",f6.3)')(myxs(i,j),j=1,3)
+c  261     continue 
         else
           flags = flags*2
         endif
 c       Solute velocity
         if (lvs) then
           flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,vs,nsan)
+          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,myvs,nsan)
           call adios2_set_selection(vsv, 2_4, adios2_null_dims, ! (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
-          call adios2_put(adios2_engine_trj, vsv, vs, err)
+          call adios2_put(adios2_engine_trj, vsv, myvs, err)
         else
           flags = flags*2
         endif
 c       Solute forces
         if (lfs) then
           flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,fs,nsan)
+          call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,myfs,nsan)
           call adios2_set_selection(vsf, 2_4, adios2_null_dims, ! (/ me*msa, 0_8 /),
      +                                       (/ nsan, 3_8 /), err)
-          call adios2_put(adios2_engine_trj, vsf, fs, err)
+          call adios2_put(adios2_engine_trj, vsf, myfs, err)
         else
           flags = flags*2
         endif
