@@ -18,7 +18,7 @@
 
         !wcomm = ga_pgroup_get_world()
         wcomm = MPI_COMM_WORLD
-        call adios2_init_config(adios2obj, "adios2.xml", wcomm, 
+        call adios2_init(adios2obj, "adios2.xml", wcomm, 
      &                          .true._4, ierr)
 
       end subroutine adiosio_init
