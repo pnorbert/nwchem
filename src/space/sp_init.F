@@ -3348,6 +3348,7 @@ c
 c
       call adios2_begin_step(adios2_engine_trj, err)
       if (me.eq.0) then 
+          write(6,'(a,f9.4)') "ADIOS Output step ",stime
           call adios2_put(adios2_engine_trj, vstime, stime, err)
           call adios2_put(adios2_engine_trj, vtemp, temp, err)
           call adios2_put(adios2_engine_trj, vpres, pres, err)
@@ -3407,11 +3408,11 @@ c        x...xy...yz...z coordinates in one contiguous memory block as needed by
 c       write(6,'(a,i2,a,i4,a,i4,a,i4)') "@@ Rank ",me," get xw. mwa=",
 c     + mwa, " nwa=", nwa, " nwmn=", nwmn
 c SHOULD BE THIS:           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,nwmn)
-        if (allocated(myxw)) then
-           write(6,'(a,i2,a)') "@@ Rank ",me," YAY "
-        else
-           write(6,'(a,i2,a)') "@@ Rank ",me," NOO "
-        endif
+c        if (allocated(myxw)) then
+c           write(6,'(a,i2,a)') "@@ Rank ",me," YAY "
+c        else
+c           write(6,'(a,i2,a)') "@@ Rank ",me," NOO "
+c        endif
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,myxw,nwmn)
 c          write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
 c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
