@@ -3197,7 +3197,17 @@ c     Contiguous column from isl
       integer :: isg(msa)
 c     Flags stored 8 bit integer = (0, 0, lxw, lvw, lfw, lxs, lvs, lfs)
       integer*1 :: flags
+c     Global array sizes and offsets
+      integer*8, dimension(3) :: shapew, startw, countw
+      integer*8, dimension(2) :: shapes, starts, counts
 
+      shapew  = (/ np*mwm, 3_8, nwa /)
+      startw  = (/ me*mwm, 0_8, 0_8 /)
+      countw  = (/ mwm, 3_8, nwa /)
+c
+      shapes  = (/ np*msa, 3_8 /)
+      starts  = (/ me*msa, 0_8 /)
+      counts  = (/ msa, 3_8 /)
 c
       dumdst=0.02d0
 c
@@ -3284,63 +3294,50 @@ c    Define solvent output variables
         call adios2_define_variable(vwx, adios2_io_trj, 
      +         "solvent/coords", 
      +         adios2_type_dp, 3_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nwmn, 3_8, nwa /), 
+     +         shapew, startw, countw, 
      +         .false._4, err)
-c     +         (/ np*mwm, 3_8, nwa /), (/ me*mwm, 0_8, 0_8 /), 
  
         call adios2_define_variable(vwv, adios2_io_trj, 
      +         "solvent/velocity", 
      +         adios2_type_dp, 3_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nwmn, 3_8, nwa /), 
+     +         shapew, startw, countw, 
      +         .false._4, err)
  
         call adios2_define_variable(vwf, adios2_io_trj, 
      +         "solvent/forces", 
      +         adios2_type_dp, 3_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nwmn, 3_8, nwa /), 
+     +         shapew, startw, countw, 
      +         .false._4, err)
  
         call adios2_define_variable(viw, adios2_io_trj, 
      +         "solvent/indices", 
-     +         adios2_type_integer8, 1_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nwmn /), 
+     +         adios2_type_integer8, 1_4, ! 1-D only
+     +         shapew, startw, countw, 
      +         .false._4, err)
-c     +          (/ np*mwm /), (/ me*mwm /), 
  
 c    Define solute output variables
         call adios2_define_variable(vsx, adios2_io_trj, 
      +         "solute/coords", 
      +         adios2_type_dp, 2_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nsan, 3_8 /), 
+     +         shapes, starts, counts,
      +         .false._4, err)
-c     +         (/ np*msa, 3_8 /), (/ me*msa, 0_8 /), 
- 
         call adios2_define_variable(vsv, adios2_io_trj, 
      +         "solute/velocity", 
      +         adios2_type_dp, 2_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nsan, 3_8 /), 
+     +         shapes, starts, counts,
      +         .false._4, err)
  
         call adios2_define_variable(vsf, adios2_io_trj, 
      +         "solute/forces", 
      +         adios2_type_dp, 2_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nsan, 3_8 /), 
+     +         shapes, starts, counts,
      +         .false._4, err)
  
         call adios2_define_variable(vis, adios2_io_trj, 
      +         "solute/indices", 
-     +         adios2_type_integer8, 1_4, 
-     +         adios2_null_dims, adios2_null_dims,
-     +         (/ nsan /), 
+     +         adios2_type_integer8, 1_4, ! 1-D only
+     +         shapes, starts, counts,
      +         .false._4, err)
-c     +         (/ np*msa /), (/ me*msa /), 
  
       endif
 c
@@ -3357,21 +3354,24 @@ c
           if (first_call) then
              call adios2_put(adios2_engine_trj, vnproc, np, err)
              call adios2_put(adios2_engine_trj, vrdate, rdate, err)
-c             call adios2_put(adios2_engine_trj, vmwm, mwm, err)
+             call adios2_put(adios2_engine_trj, vmwm, mwm, err)
              call adios2_put(adios2_engine_trj, vnwm, nwm, err)
              call adios2_put(adios2_engine_trj, vnwa, nwa, err)
-c             call adios2_put(adios2_engine_trj, vmsa, msa, err)
+             call adios2_put(adios2_engine_trj, vmsa, msa, err)
              call adios2_put(adios2_engine_trj, vnsa, nsa, err)
           endif
       endif
       call adios2_put(adios2_engine_trj, vnwmn, nwmn, err)
       call adios2_put(adios2_engine_trj, vnsan, nsan, err)
 
+c
 c     Solvent output
-      if(nwmn.gt.0) then
-        if (.not.allocated(myxw)) allocate(myxw(mwm,3,nwa))
-        if (.not.allocated(myvw)) allocate(myvw(mwm,3,nwa))
-        if (.not.allocated(myfw)) allocate(myfw(mwm,3,nwa))
+c
+      if (.not.allocated(myxw)) allocate(myxw(mwm,3,nwa))
+      if (.not.allocated(myvw)) allocate(myvw(mwm,3,nwa))
+      if (.not.allocated(myfw)) allocate(myfw(mwm,3,nwa))
+
+      if (nwmn.gt.0) then
 c       Indices
         call ga_distribution(ga_iw,me,ili,ihi,jli,jhi)
         if(npackw.eq.0) then
@@ -3385,73 +3385,61 @@ c       which must live until adios_end_step(), so
 c       passing iwl(1:mwm, lwgmn) is not good here
 c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
         iwg = iwl(1:mwm,lwgmn)
-        call adios2_set_selection(viw, 1_4, adios2_null_dims, !(/ me*mwm /),
-     +                                      (/ nwmn /), err)
-        call adios2_put(adios2_engine_trj, viw, iwg, err)
+      else
+        iwg = 0
+      endif
+      call adios2_put(adios2_engine_trj, viw, iwg, err)
 
-c       Solvent coordinates
-        call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
+c     Solvent coordinates
+      call ga_distribution(ga_w,me,ilw,ihw,jlw,jhw)
 
-        if (lxw) then
-          flags = 1 
-
-#if 0
-        HERE IS THE PROBLEM:
-        xw is an mwa x 3 x nwa array but we only write out the first contiguous
-        nwmn x 3 x nwa elements, but that is not the nwmn particles but
-        probably 3*nwmn X coordinates where most values are completely wrong
-        Need to serialize (X, Y, Z)x nwa of nwmn elements into one block
-#endif
-c        We only collect nwmn molecules even though xw has mwa rows. We trick GA here
-c        to fill out xw as if it had nwmn slots. This will have the 
-c        x...xy...yz...z coordinates in one contiguous memory block as needed by ADIOS
-c       write(6,'(a,i2,a,i4,a,i4,a,i4)') "@@ Rank ",me," get xw. mwa=",
-c     + mwa, " nwa=", nwa, " nwmn=", nwmn
-c SHOULD BE THIS:           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,nwmn)
-c        if (allocated(myxw)) then
-c           write(6,'(a,i2,a)') "@@ Rank ",me," YAY "
-c        else
-c           write(6,'(a,i2,a)') "@@ Rank ",me," NOO "
-c        endif
-          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,myxw,nwmn)
-c          write(6,'(a,i2,a,15(3F12.6))') "@@ Rank ",me," xw = ",
-c     +                      (((xw(i,j,k), j=1,3),k=1,nwa),i=1,5)
-          call adios2_set_selection(vwx, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
-     +                                       (/ nwmn, 3_8, nwa /), err)
-          call adios2_put(adios2_engine_trj, vwx, myxw, err)
+      if (lxw) then
+        flags = 1 
+        if (nwmn.gt.0) then
 c          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,xw,mwm)
+          call ga_get(ga_w,ilw,ilw+nwmn-1,jlw,jlw+3*mwa-1,myxw,mwm)
         else 
-          flags = 0 
+          myxw = 0
         endif
-c       Solvent velocity
-        if (lvw) then
-          flags = flags*2+1
+        call adios2_put(adios2_engine_trj, vwx, myxw, err)
+      else 
+        flags = 0 
+      endif
+c     Solvent velocity
+      if (lvw) then
+        flags = flags*2+1
+        if (nwmn.gt.0) then
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+3*mwa,jlw+6*mwa-1,myvw,
-     +                nwmn)
-          call adios2_set_selection(vwv, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
-     +                                       (/ nwmn, 3_8, nwa /), err)
-          call adios2_put(adios2_engine_trj, vwv, myvw, err)
-        else
-          flags = flags*2
+     +                mwm)
+        else 
+          myvw = 0
         endif
-c       Solvent forces
-        if (lfw) then
-          flags = flags*2+1
+        call adios2_put(adios2_engine_trj, vwv, myvw, err)
+      else
+        flags = flags*2
+      endif
+c     Solvent forces
+      if (lfw) then
+        flags = flags*2+1
+        if (nwmn.gt.0) then
           call ga_get(ga_w,ilw,ilw+nwmn-1,jlw+6*mwa+3,jlw+9*mwa+2,myfw,
-     +                nwmn)
-          call adios2_set_selection(vwf, 3_4, adios2_null_dims, ! (/ me*mwm, 0_8, 0_8 /),
-     +                                       (/ nwmn, 3_8, nwa /), err)
-          call adios2_put(adios2_engine_trj, vwf, myfw, err)
-        else
-          flags = flags*2
+     +                mwm)
+        else 
+          myfw = 0
         endif
+        call adios2_put(adios2_engine_trj, vwf, myfw, err)
+      else
+        flags = flags*2
       endif
 
+c
 c     Solute output
-      if(nsan.gt.0) then
-        if (.not.allocated(myxs)) allocate(myxs(msa,3))
-        if (.not.allocated(myvs)) allocate(myvs(msa,3))
-        if (.not.allocated(myfs)) allocate(myfs(msa,3))
+c
+      if (.not.allocated(myxs)) allocate(myxs(msa,3))
+      if (.not.allocated(myvs)) allocate(myvs(msa,3))
+      if (.not.allocated(myfs)) allocate(myfs(msa,3))
+
+      if (nsan.gt.0) then
 c       Indices
         call ga_distribution(ga_is,me,ili,ihi,jli,jhi)
         if(npack.eq.0) then
@@ -3460,65 +3448,57 @@ c       Indices
           call ga_get(ga_is,ili,ili+nsan-1,jli,jli+npack-1,islp,msa)
           call sp_unpack(nsan,isl,islp)
         endif
-
 c       Get copy of contiguous data
 c       which must live until adios_end_step(), so 
 c       passing iwl(1:mwm, lwgmn) is not good here
 c        write(6,'(a,i2,a,i4)') "@@ Rank ",me," lwgmn = ", lwgmn
         isg = isl(1:msa,lsgan)
-        call adios2_set_selection(vis, 1_4, adios2_null_dims, !(/ me*msa /),
-     +                                      (/ nsan /), err)
-        call adios2_put(adios2_engine_trj, vis, isg, err)
-
-c       Solute coordinates
-        call ga_distribution(ga_s,me,ils,ihs,jls,jhs)
-
-        if (lxs) then
-          flags = flags*2+1
-
-#if 0
-        HERE IS THE PROBLEM:
-        xs is an msa x 3 array but we only write out the first contiguous
-        nsnan x 3 elements, but that is not the nsan particles but
-        probably 3*nsan X coordinates where 2*nsan values are completely wrong
-        Need to serialize X, Y, Z of nsan elements into one block
-#endif
-c        We only collect nsan atoms even though xs has msa rows. We trick GA here
-c        to fill out xs as if it had nsan slots. This will have the 
-c        x...xy...yz...z coordinates in one contiguous memory block as needed by ADIOS
-c          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
-          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,myxs,nsan)
-          call adios2_set_selection(vsx, 2_4, adios2_null_dims, ! (/ me*msa, 0_8 /),
-     +                                       (/ nsan, 3_8 /), err)
-          call adios2_put(adios2_engine_trj, vsx, myxs, err)
-c          write (100+me, '("rank=",i2," XS size=",i5)') me, nsan 
-c          do 261 i=1,nsan
-c           write(100+me,'(f6.3,"  ",f6.3,"  ",f6.3)')(myxs(i,j),j=1,3)
-c  261     continue 
-        else
-          flags = flags*2
-        endif
-c       Solute velocity
-        if (lvs) then
-          flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,myvs,nsan)
-          call adios2_set_selection(vsv, 2_4, adios2_null_dims, ! (/ me*msa, 0_8 /),
-     +                                       (/ nsan, 3_8 /), err)
-          call adios2_put(adios2_engine_trj, vsv, myvs, err)
-        else
-          flags = flags*2
-        endif
-c       Solute forces
-        if (lfs) then
-          flags = flags*2+1
-          call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,myfs,nsan)
-          call adios2_set_selection(vsf, 2_4, adios2_null_dims, ! (/ me*msa, 0_8 /),
-     +                                       (/ nsan, 3_8 /), err)
-          call adios2_put(adios2_engine_trj, vsf, myfs, err)
-        else
-          flags = flags*2
-        endif
+      else
+        isg = 0
       endif
+      call adios2_put(adios2_engine_trj, vis, isg, err)
+
+c     Solute coordinates
+      call ga_distribution(ga_s,me,ils,ihs,jls,jhs)
+
+      if (lxs) then
+        flags = flags*2+1
+        if (nsan.gt.0) then
+c          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,xs,msa)
+          call ga_get(ga_s,ils,ils+nsan-1,jls,jls+2,myxs,msa)
+        else
+          myxs = 0
+        endif
+        call adios2_put(adios2_engine_trj, vsx, myxs, err)
+      else
+        flags = flags*2
+      endif
+c     Solute velocity
+      if (lvs) then
+        flags = flags*2+1
+        if (nsan.gt.0) then
+          call ga_get(ga_s,ils,ils+nsan-1,jls+3,jls+5,myvs,msa)
+        else
+          myvs = 0
+        endif
+        call adios2_put(adios2_engine_trj, vsv, myvs, err)
+      else
+        flags = flags*2
+      endif
+c     Solute forces
+      if (lfs) then
+        flags = flags*2+1
+        if (nsan.gt.0) then
+        call ga_get(ga_s,ils,ils+nsan-1,jls+6,jls+8,myfs,msa)
+        else
+          myfs = 0
+        endif
+        call adios2_put(adios2_engine_trj, vsf, myfs, err)
+      else
+        flags = flags*2
+      endif
+
+c     Flags
 
       if (me.eq.0) then 
           call adios2_put(adios2_engine_trj, vflags, flags, err)
