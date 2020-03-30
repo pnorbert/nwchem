@@ -3339,6 +3339,7 @@ c    Define solute output variables
      +         shapes, starts, counts,
      +         .false._4, err)
  
+        call adios2_lock_writer_definitions(adios2_engine_trj, err)
       endif
 c
       call swatch(rdate,rtime)
