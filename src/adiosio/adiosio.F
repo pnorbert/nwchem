@@ -16,8 +16,8 @@
 #include "mpif.h"
         integer*4 :: ierr, wcomm
 
-        !wcomm = ga_pgroup_get_world()
-        wcomm = MPI_COMM_WORLD
+        !wcomm = MPI_COMM_WORLD
+        call ga_mpi_comm(wcomm)
         call adios2_init(adios2obj, "adios2.xml", wcomm, 
      &                          .true._4, ierr)
 
@@ -29,8 +29,9 @@
         implicit none
 !#include "global.fh"
 #include "mpif.h"
-        integer*4 :: ierr, rank
-        call MPI_Comm_Rank(MPI_COMM_WORLD, rank, ierr)
+        integer*4 :: ierr, rank, wcomm
+        call ga_mpi_comm(wcomm)
+        call MPI_Comm_Rank(wcomm, rank, ierr)
         if (adios2_engine_trj%valid) then
             !if (ga_nodeid() == 0) print *, 'ADIOS2: Close output "trj"'
             if (rank == 0) print *, 'ADIOS2: Close output "trj"'
