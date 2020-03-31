@@ -3198,16 +3198,16 @@ c     Contiguous column from isl
 c     Flags stored 8 bit integer = (0, 0, lxw, lvw, lfw, lxs, lvs, lfs)
       integer*1 :: flags
 c     Global array sizes and offsets
-      integer*8, dimension(3) :: shapew, startw, countw
-      integer*8, dimension(2) :: shapes, starts, counts
+      integer*8, dimension(4) :: shapew, startw, countw
+      integer*8, dimension(3) :: shapes, starts, counts
 
-      shapew  = (/ np*mwm, 3_8, nwa /)
-      startw  = (/ me*mwm, 0_8, 0_8 /)
-      countw  = (/ mwm, 3_8, nwa /)
+      shapew  = (/ mwm, 3_8, nwa, np /)
+      startw  = (/ 0_8, 0_8, 0_8, me /)
+      countw  = (/ mwm, 3_8, nwa, 1_8 /)
 c
-      shapes  = (/ np*msa, 3_8 /)
-      starts  = (/ me*msa, 0_8 /)
-      counts  = (/ msa, 3_8 /)
+      shapes  = (/ msa, 3_8, np /)
+      starts  = (/ 0_8, 0_8, me /)
+      counts  = (/ msa, 3_8, 1 /)
 c
       dumdst=0.02d0
 c
@@ -3293,50 +3293,50 @@ c      endif
 c    Define solvent output variables
         call adios2_define_variable(vwx, adios2_io_trj, 
      +         "solvent/coords", 
-     +         adios2_type_dp, 3_4, 
+     +         adios2_type_dp, 4_4, 
      +         shapew, startw, countw, 
      +         .false._4, err)
  
         call adios2_define_variable(vwv, adios2_io_trj, 
      +         "solvent/velocity", 
-     +         adios2_type_dp, 3_4, 
+     +         adios2_type_dp, 4_4, 
      +         shapew, startw, countw, 
      +         .false._4, err)
  
         call adios2_define_variable(vwf, adios2_io_trj, 
      +         "solvent/forces", 
-     +         adios2_type_dp, 3_4, 
+     +         adios2_type_dp, 4_4, 
      +         shapew, startw, countw, 
      +         .false._4, err)
  
         call adios2_define_variable(viw, adios2_io_trj, 
      +         "solvent/indices", 
-     +         adios2_type_integer8, 1_4, ! 1-D only
-     +         shapew, startw, countw, 
+     +         adios2_type_integer8, 2_4, ! 2-D only
+     +         (/ mwm, np /), (/ 0_8, me /), (/ mwm, 1_8 /),
      +         .false._4, err)
  
 c    Define solute output variables
         call adios2_define_variable(vsx, adios2_io_trj, 
      +         "solute/coords", 
-     +         adios2_type_dp, 2_4, 
+     +         adios2_type_dp, 3_4, 
      +         shapes, starts, counts,
      +         .false._4, err)
         call adios2_define_variable(vsv, adios2_io_trj, 
      +         "solute/velocity", 
-     +         adios2_type_dp, 2_4, 
+     +         adios2_type_dp, 3_4, 
      +         shapes, starts, counts,
      +         .false._4, err)
  
         call adios2_define_variable(vsf, adios2_io_trj, 
      +         "solute/forces", 
-     +         adios2_type_dp, 2_4, 
+     +         adios2_type_dp, 3_4, 
      +         shapes, starts, counts,
      +         .false._4, err)
  
         call adios2_define_variable(vis, adios2_io_trj, 
      +         "solute/indices", 
-     +         adios2_type_integer8, 1_4, ! 1-D only
-     +         shapes, starts, counts,
+     +         adios2_type_integer8, 2_4, ! 2-D only
+     +         (/ msa, np /), (/ 0_8, me /), (/ msa, 1 /),
      +         .false._4, err)
  
         call adios2_lock_writer_definitions(adios2_engine_trj, err)
