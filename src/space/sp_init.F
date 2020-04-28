@@ -3346,7 +3346,7 @@ c
 c
       call adios2_begin_step(adios2_engine_trj, err)
       if (me.eq.0) then 
-          write(6,'(a,f9.4)') "ADIOS Output step ",stime
+c          write(6,'(a,f9.4)') "ADIOS Output step ",stime
           call adios2_put(adios2_engine_trj, vstime, stime, err)
           call adios2_put(adios2_engine_trj, vtemp, temp, err)
           call adios2_put(adios2_engine_trj, vpres, pres, err)
