@@ -112,6 +112,7 @@
 
       if (newpsi) then
          call c_sdminimize(10)
+         call c_bybminimize0()
          if (control_fractional()) then
             call cpsi_1toelectron()
             call cpsi_1gen_hml()
@@ -201,7 +202,7 @@
       if (icount.lt.it_out) go to 2
       if (mprint) 
      > write(luout,*) 
-     >  '*** arived at the Maximum iiteration.   terminated.'
+     >  '*** arrived at the Maximum iteration.   terminated.'
 
 *     :::::::::::  end of electron iteration loop  :::::::::::::::::::::
 

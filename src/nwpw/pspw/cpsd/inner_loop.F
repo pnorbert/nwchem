@@ -63,14 +63,15 @@ cccccccc#include "frac_occ.fh"
       real*8  exc,exc2,pxc,pxc2,dte,scal1,scal2,dv,dt
       real*8  ehsic,phsic,exsic,pxsic,ehfx,phfx
       real*8  deltamm
-      real*8  e_lj, e_q, e_spring
+      real*8  e_lj, e_q, e_spring,Eapc,Papc
       real*8  ehartree_atom,ecmp_cmp,ecmp_pw,exc_atom,pxc_atom
       !real*8 e_ionmm,e_qmmm,e_mmmm,e_pol,e_vib,e_cav
 
 
 
 *     **** MA local variables ****
-      logical value,field_exist,cosmo_on,cosmo1_on,cosmo2_on
+      logical value,field_exist,cosmo_on,cosmo1_on
+      logical V_APC_on
 *     real*8     tmp_L(8*nemax*nemax)
 *     complex*16 tmp1(nfft3d)
 *     complex*16 tmp2(nfft3d)
@@ -138,8 +139,8 @@ c     real*8     fion(3,natmx)
       external psp_hartree_atom,psp_hartree_cmp_cmp,psp_hartree_cmp_pw
 
 *     **** cosmo external functions ****
-      logical  nwpw_cosmo_on,nwpw_cosmo1_on,nwpw_cosmo2_on
-      external nwpw_cosmo_on,nwpw_cosmo1_on,nwpw_cosmo2_on
+      logical  nwpw_cosmo_on,nwpw_cosmo1_on,pspw_V_APC_on
+      external nwpw_cosmo_on,nwpw_cosmo1_on,pspw_V_APC_on
       real*8   nwpw_cosmo_Eqq,nwpw_cosmo_EQionq,nwpw_cosmo_EQelcq
       external nwpw_cosmo_Eqq,nwpw_cosmo_EQionq,nwpw_cosmo_EQelcq
 
@@ -185,7 +186,7 @@ c     real*8     fion(3,natmx)
       gga = control_gga()
       cosmo_on  = nwpw_cosmo_on()
       cosmo1_on = nwpw_cosmo1_on()
-      cosmo2_on = nwpw_cosmo2_on()
+      V_APC_on  = pspw_V_APC_on()
 
       call nwpw_timing_start(12)
 *     **** allocate MA local variables ****
@@ -455,7 +456,6 @@ c        call mask_C(0,dcpl_mb(dng(1)))
      >               dcpl_mb(dng(1)),
      >               dbl_mb(fion(1)))
 
-
 *       *** long-range psp for charge systems ***
         if (control_version().eq.4) then
           call v_lr_local(dbl_mb(r_grid(1)),
@@ -467,10 +467,11 @@ c        call mask_C(0,dcpl_mb(dng(1)))
           end if
         end if
 
-        if (cosmo2_on) then
-           call pspw_cosmo_V_APC(ispin,ne,
+        if (V_APC_on) then
+           call pspw_V_APC(ispin,ne,
      >                           dcpl_mb(dng(1)),
-     >                           dcpl_mb(vl(1)))
+     >                           dcpl_mb(vl(1)),
+     >                           Eapc,Papc)
         end if
 
 
@@ -560,6 +561,7 @@ c          call Pack_cc_Sum(1,psi2(1,n),psi1(1,n),psi2(1,n))
 
 *          **** get the free-space ion force ****
            if (control_version().eq.4) call ion_ion_f(dbl_mb(fion(1)))
+
 
 *          **** get the semicore force ****
            if (psp_semicore(0)) then
@@ -810,6 +812,8 @@ c     >        - ehartree_atom - ecmp_cmp - ecmp_pw
 
 *     **** COSMO terms ****
       if (cosmo_on) then
+
+         !*** cosmo1 ****
          if (cosmo1_on) then
             call v_local_cosmo(dcpl_mb(vl(1)))
             call Pack_cc_dot(0,dcpl_mb(dng(1)),dcpl_mb(vl(1)),elocal)
@@ -818,17 +822,27 @@ c     >        - ehartree_atom - ecmp_cmp - ecmp_pw
                call D3dB_rr_dot(1,dbl_mb(rho(1)),dbl_mb(vlr_l(1)),sum)
                elocal = elocal + sum*dv
             end if
+            E(46) = elocal
+            E(47) = nwpw_cosmo_EQionq()
+            E(48) = nwpw_cosmo_Eqq()
+
+         !*** cosmo2 ****
          else
-c            call Parallel_shared_vector_zero(.true.,2*npack0,
-c     >                                       dcpl_mb(vl(1)))
-c            call pspw_cosmo_V0_APC(dcpl_mb(vl(1)))
-c            call Pack_cc_dot(0,dcpl_mb(dng(1)),dcpl_mb(vl(1)),elocal)
-c            write(*,*) "vlocal cosmo=",elocal
-            elocal = nwpw_cosmo_EQelcq()
+            E(22) = Eapc
+            E(23) = Papc
+            E(46) = Eapc
+            E(47) = nwpw_cosmo_EQionq() !** E(Qion|q)
+            E(48) = nwpw_cosmo_Eqq()    !** E(q|q)
+
+            !E(1)  = E(1) + E(22) - E(23) + E(47) + E(48)
+            E(1)  = E(1) + E(22) - E(23) 
          end if
-         E(46) = elocal
-         E(47) = nwpw_cosmo_EQionq()
-         E(48) = nwpw_cosmo_Eqq()
+     
+*     **** AQC Energy ****
+      else if (V_APC_on) then
+         E(22) = Eapc
+         E(23) = Papc
+         E(1)  = E(1) + E(22) - E(23)
       end if
 
 
@@ -875,6 +889,7 @@ c            write(*,*) "vlocal cosmo=",elocal
          E(33) = ion_disp_energy()
          E(1)  = E(1) + E(33)
       end if
+
 
 
 *     **** set convergence variables ****

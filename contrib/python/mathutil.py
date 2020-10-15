@@ -74,7 +74,7 @@ def printvector(a):
     n = len(a)
     for i in range(n):
         print ("%12.5e "%a[i]),
-    print (" ")
+    print(" ")
 
 def printmatrix(a):
     n = len(a)

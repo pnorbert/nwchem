@@ -63,7 +63,7 @@ cccc#include "frac_occ.fh"
     
 
 *     ***** energy variables ****
-      real*8  E(50)
+      real*8  E(50),Egas
 
 *     real*8  eig(2*nemax)
 *     real*8  hml(2*nemax*nemax)
@@ -197,6 +197,12 @@ c#include "Parallel.fh"
       external control_mparallelized
       logical  nwpw_cosmo_on
       external nwpw_cosmo_on
+      real*8   nwpw_cosmo_screen
+      external nwpw_cosmo_screen
+      logical  pspw_V_APC_on
+      external pspw_V_APC_on
+      real*8   control_gas_energy
+      external control_gas_energy
 
 *                            |************|
 *****************************|  PROLOGUE  |****************************
@@ -692,7 +698,8 @@ c           write(luout,1151) (psp_rc(i,ia),i=0,psp_lmax(ia))
 *                |***************************|
 
       if (oprint) call current_second(cpu2)
-      if (oprint) CALL nwpw_MESSAGE(2)
+      if (oprint) call nwpw_message(14)
+     
       it_in  = control_it_in()
       it_out = control_it_out()
       icount = 0
@@ -730,12 +737,12 @@ c           write(luout,1151) (psp_rc(i,ia),i=0,psp_lmax(ia))
       if (icount.lt.it_out) go to 1
       if (oprint) 
      > write(luout,*) 
-     > '*** arived at the Maximum iiteration.   terminated.'
+     > '*** arrived at the Maximum iteration.   terminated.'
 
 *::::::::::::::::::::  end of iteration loop  :::::::::::::::::::::::::
 
    2  continue
-      if (oprint) CALL nwpw_MESSAGE(3)
+      if (oprint) CALL nwpw_message(3)
       if (oprint) call current_second(cpu3)
 
 *         |****************************************|
@@ -899,6 +906,9 @@ c         end do
             write(luout,1323) en2(1),en2(ispin),' (real space)'
          end if
 
+*       **** write APC potential and charges ***
+        if (pspw_V_APC_on()) call pspw_shortprint_APC(luout)
+
 
          write(luout,1430) E(1),E(1)/ion_nion()
          if (pspw_qmmm_found()) then
@@ -929,6 +939,9 @@ c         end do
          if (meta_found()) then
            write(luout,1459) E(31),E(31)/ion_nion()
          end if
+         if (pspw_V_APC_on()) then
+           write(luout,1505) E(22),E(22)/ion_nion()
+         end if
 
 
          write(luout,1470) E(5),E(5)/ion_nion()
@@ -950,6 +963,10 @@ c         end do
          if (meta_found()) then
            write(luout,1504) E(32),E(32)/n2(ispin)
          end if
+         if (pspw_V_APC_on()) then
+           write(luout,1506) E(23),E(23)/n2(ispin)
+         end if
+
          virial = (E(10)+E(9)+E(8)+E(7))/E(6)
          write(luout,1498) virial
 
@@ -990,6 +1007,7 @@ c            write(luout,1706) E(18)
         if (ion_disp_on()) then
             write(luout,1720) E(33)
         end if
+
 
 
          if (.not.mparallelized) then
@@ -1041,19 +1059,25 @@ c            write(luout,1706) E(18)
 
          end if
          end if
+      end if
 
-*      **** write out COSMO energies ****
-       if (nwpw_cosmo_on()) then
+*     **** write out COSMO energies ****
+      if (nwpw_cosmo_on()) then
+         Egas = control_gas_energy()
+         if (oprint) then
             write(luout,1730) 
-            write(luout,1731) 
+            write(luout,1731) nwpw_cosmo_screen()
             write(luout,1732) E(46)
             write(luout,1733) E(47)
             write(luout,1734) E(48)
             write(luout,1735) E(46)+E(47)+E(48),
      >                        (E(46)+E(47)+E(48))*27.2116d0*23.06d0
-       end if
-
+            if (dabs(Egas).gt.1.0d-6)
+     >         write(luout,1736)  E(1)-Egas,
+     >                           (E(1)-Egas)*27.2116d0*23.06d0
+         end if
       end if
+
 
       if (mparallelized) then
           do ms=1,ispin
@@ -1282,7 +1306,8 @@ c      call frac_occ_end()
  1290 FORMAT(5X, ' tolerance=',E8.3,' (energy)',E12.3,
      &        ' (electron)',E12.3,' (ion)')
  1300 FORMAT(//)
- 1305 FORMAT(10X,'================ iteration =========================')
+ 1305 FORMAT(10X,
+     >       '==================== iteration =========================')
  1310 FORMAT(I8,E20.10,3E15.5)
  1320 FORMAT(' number of electrons: spin up=',F11.5,'  down=',F11.5,A)
  1321 FORMAT(' total charge of system:',F11.5,A)
@@ -1333,6 +1358,9 @@ c      call frac_occ_end()
      >        ' (',E15.5,'/electron)')
  1503 FORMAT( ' K.S. DFT+U energy   :',E19.10,' (',E15.5,'/electron)')
  1504 FORMAT( ' K.S. Metadynamics energy :',E19.10,' (',E15.5,'/ion)')
+ 1505 FORMAT( ' APC energy          :',E19.10,' (',E15.5,'/ion)')
+ 1506 FORMAT( ' K.S. V_APC energy   :',E19.10,' (',E15.5,'/ion)')
+
  1510 FORMAT(2(E18.7,' (',F8.3,'eV)'))
  1511 FORMAT(2(E18.7,' (',F8.3,'eV) occ=',F5.3))
  1600 FORMAT(/' Total PSPW energy   :',E19.10)
@@ -1361,12 +1389,14 @@ c      call frac_occ_end()
  1720 FORMAT(/' Dispersion energy   :',E19.10)
 
  1730 FORMAT(/' COSMO energies:')
- 1731 FORMAT(5x,' screen=(epsilon-1)/(epsilon+1/2)')
+ 1731 FORMAT(5x,' screen=(epsilon-1)/(epsilon+1/2):',F11.6)
  1732 FORMAT(5x,' screen*Qelc*B*q energy  :',E19.10)
  1733 FORMAT(5x,' screen*Qion*B*q energy  :',E19.10)
  1734 FORMAT(5x,' screen*0.5*q*A*q energy :',E19.10)
  1735 FORMAT(5x,' solvation energy (w/o QM polarization) :',E19.10,
      >   /45x,' (',F8.3,' kcal/mol)')
+ 1736 FORMAT(5x,' solvation energy (w/  QM polarization) :',E19.10,
+     >   ' (',F8.3,' kcal/mol)')
 
  9010 FORMAT(//' >> job terminated due to code =',I3,' <<')
 
