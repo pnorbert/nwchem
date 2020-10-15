@@ -259,11 +259,8 @@ MOD_LIBS := $(patsubst solvation,-lsolvation,$(MOD_LIBS) )
 MOD_LIBS := $(patsubst nwxc,-lnwxc,$(MOD_LIBS) )
 MOD_LIBS := $(patsubst dimqm,-ldimqm,$(MOD_LIBS) )
 MOD_LIBS := $(patsubst rdmft,-lrdmft,$(MOD_LIBS) )
-<<<<<<< HEAD
 MOD_LIBS := $(patsubst adiosio,-ladiosio,$(MOD_LIBS) )
-=======
 MOD_LIBS := $(patsubst fcidump,-lfcidump,$(MOD_LIBS) )
->>>>>>> master
 MOD_LIBS := $(strip $(MOD_LIBS))
 
 #-----------------------------------------------------------------------------
